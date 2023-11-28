@@ -17,9 +17,9 @@ fn foo() -> Result<(), Box<dyn std::error::Error>> {
 
     // Attempt authentication
     println!("Attempting to authenticate...");
-    sess.userauth_password(username, password)?;
+    sess.userauth_password(username, "Webma$ter1")?;
     assert!(sess.authenticated());
     println!("Authentication successful!");
 
-    Ok(());
+    Ok(())
 }
