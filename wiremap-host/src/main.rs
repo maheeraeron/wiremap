@@ -2,12 +2,11 @@
 use ssh2::{Channel, Session};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::{str, env};
+use std::{env, str};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     // For verbose logging
-    env::set_var("RUST_BACKTRACE", "full");
+    // env::set_var("RUST_BACKTRACE", "full");
 
     // Extract command line arguments into variables
     let local_port: u16 = 5001;
@@ -34,6 +33,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener: TcpListener = TcpListener::bind(format!("127.0.0.1:{}", local_port))?;
     println!("Listening on port {}", local_port);
 
+    // Create channel
+    let mut channel: Channel = match session.channel_direct_tcpip("localhost", 10004, None) {
+        Ok(channel) => channel,
+        Err(e) => {
+            eprintln!("Error opening channel: {:?}", e);
+            return Ok(());
+        }
+    };
+
     // Listen for TCP connections
     for stream in listener.incoming() {
         println!("===============================================================================");
@@ -48,31 +56,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             str::from_utf8(&request).unwrap()
         );
 
-        // Send the incoming request over ssh on to the remote localhost and port
-        let mut channel: Channel = session
-            .channel_direct_tcpip("localhost", remote_port, None)
-            .unwrap();
-        channel.write(&request).unwrap();
+        // Write data from buffer into channel
+        channel.write_all(&request)?;
+        println!("Request sent successfully over SSH!");
     }
     return Ok(());
+
 }
-
-// fn handle_client(mut local_stream: TcpStream, mut remote_channel: Channel) {
-//     // Buffer for local stream
-//     let mut local_buf = [0; 4096];
-
-//     loop {
-//         // Read from the local client
-//         let local_read_size = local_stream.read(&mut local_buf).unwrap();
-//         if local_read_size == 0 {
-//             break; // End of file (EOF) from the local client
-//         }
-
-//         // Write to the remote channel
-//         println!("Writing data to 10004 on remote...");
-//         let remote_write_size = remote_channel.write(&local_buf[..local_read_size]).unwrap();
-//         if remote_write_size == 0 {
-//             break; // Error writing to the remote channel
-//         }
-//     }
-// }
