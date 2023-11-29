@@ -1,30 +1,20 @@
 // Imports
-use std::env;
-use std::io;
+use ssh2::{Channel, Session};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::thread;
-
-// Uses
-use ssh2::Session;
+use std::{str, env};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Parse command line arguments
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 5 {
-        eprintln!(
-            "Usage: {} <local-port> <gateway-ip> <remote-port> <username> <password>",
-            args[0]
-        );
-        std::process::exit(1);
-    }
+
+    // For verbose logging
+    env::set_var("RUST_BACKTRACE", "full");
 
     // Extract command line arguments into variables
-    let local_port: u16 = args[1].parse().expect("Invalid local port");
-    let gateway_ip: &String = &args[2];
-    let remote_port: u16 = args[2].parse().expect("Invalid remote port");
-    let username: &String = &args[4];
-    let password: &String = &args[5];
+    let local_port: u16 = 5001;
+    let gateway_ip: &str = "dev.wiremap.io";
+    let remote_port: u16 = 10004;
+    let username: &str = "root";
+    let password: &str = "Webma$ter1";
 
     // Connect to the remote SSH server (the gateway)
     println!("Attempting to create an SSH session into {gateway_ip}...");
@@ -44,28 +34,45 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener: TcpListener = TcpListener::bind(format!("127.0.0.1:{}", local_port))?;
     println!("Listening on port {}", local_port);
 
-    // Every time we send data to the local port,
-    // spawn a thread with that data
-    thread::spawn(move || {
-        for stream in listener.incoming() {
-            match stream {
-                Ok(client_stream) => {
+    // Listen for TCP connections
+    for stream in listener.incoming() {
+        println!("===============================================================================");
 
-                    // Create a channel to the remote server
-                    let mut channel = 
-                        session.channel_direct_tcpip(gateway_ip, remote_port, None);
-                }
-                Err(e) => {
-                    eprintln!("Error accepting connection: {}", e);
-                }
-            }
-        }
-    });
+        // Read the incoming request
+        let mut stream = stream.unwrap();
+        let mut request = vec![0; 8192];
+        let read_bytes = stream.read(&mut request).unwrap();
+        println!(
+            "REQUEST ({} BYTES):\n{}",
+            read_bytes,
+            str::from_utf8(&request).unwrap()
+        );
 
-    // Keep the main thread running
-    loop {
-        thread::park();
+        // Send the incoming request over ssh on to the remote localhost and port
+        let mut channel: Channel = session
+            .channel_direct_tcpip("localhost", remote_port, None)
+            .unwrap();
+        channel.write(&request).unwrap();
     }
-
     return Ok(());
 }
+
+// fn handle_client(mut local_stream: TcpStream, mut remote_channel: Channel) {
+//     // Buffer for local stream
+//     let mut local_buf = [0; 4096];
+
+//     loop {
+//         // Read from the local client
+//         let local_read_size = local_stream.read(&mut local_buf).unwrap();
+//         if local_read_size == 0 {
+//             break; // End of file (EOF) from the local client
+//         }
+
+//         // Write to the remote channel
+//         println!("Writing data to 10004 on remote...");
+//         let remote_write_size = remote_channel.write(&local_buf[..local_read_size]).unwrap();
+//         if remote_write_size == 0 {
+//             break; // Error writing to the remote channel
+//         }
+//     }
+// }
